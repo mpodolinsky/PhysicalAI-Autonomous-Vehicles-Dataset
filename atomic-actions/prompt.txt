@@ -1,0 +1,74 @@
+You are analyzing a single dashcam-style image taken from an ego vehicle's
+front-facing camera, overlaid with a projection of the vehicle's own actual
+future trajectory over the next 6.4 seconds.
+
+## The trajectory overlay
+
+- The overlay is a fixed window of exactly 6.4 seconds of ego motion, sampled
+  at 10 Hz, i.e. up to 64 dots.
+- Color encodes time: the first dot (start of the window, "now") is DARK
+  BLUE/PURPLE, passing through GREEN in the middle of the window, and ending
+  in YELLOW at the end of the 6.4s window. So reading dark blue -> green ->
+  yellow along the dots tells you the order and pacing of the motion.
+- Not every dot is necessarily visible: a dot is only drawn if that point in
+  space projects inside the visible camera image and in front of the camera.
+  If the dots stop partway (fewer than 64 shown, or they end well before the
+  image edge/horizon), this can mean EITHER (a) the vehicle actually came to
+  a stop around that point (dots cluster and stop advancing in space), OR
+  (b) the vehicle kept moving but its future path left the camera's field of
+  view (e.g. a sharp turn off-frame, or it went over a hill/dip). Use the
+  spacing and clustering of the dots, the vehicle's reported speed/
+  acceleration below, and the scene context (intersection, curve, open road,
+  stopped traffic ahead, etc.) to judge which case applies -- do not assume
+  a short dot trail always means stopping.
+
+## Ego motion at the start of the window
+
+You will also be given the ego vehicle's own instantaneous 3D velocity and
+acceleration at the moment the window starts, as `v=(vx,vy,vz) m/s` and
+`a=(ax,ay,az) m/s^2` in the vehicle's local frame: x = forward, y = lateral
+with POSITIVE y = LEFT and NEGATIVE y = RIGHT, z = vertical (positive up).
+Rounded to 1 decimal place, plus total forward speed in km/h. So a positive
+vy (or ay) indicates leftward motion (or acceleration), and a negative vy
+(or ay) indicates rightward motion (or acceleration) -- do not assume the
+opposite convention.
+
+## Your task
+
+Reason step by step about what the dot trail plus the velocity/acceleration
+numbers imply about the vehicle's motion over this 6.4s window, then
+summarize that motion as a sequence of exactly 3 atomic actions, in order,
+each one of:
+
+- `go straight`
+- `turn left`
+- `turn right`
+- `stop`
+
+This vocabulary is deliberately small -- a real 6.4s trajectory (e.g. a
+gentle curve, or a rolling stop) will never match it perfectly. Choose the
+sequence of 3 actions whose composed path most closely approximates the
+actual observed trajectory shape and pacing, e.g. a gentle continuous left
+bend over the whole window is best approximated as
+`["go straight", "turn left", "turn left"]` or `["turn left", "turn left",
+"go straight"]` depending on where the bend is concentrated; a vehicle
+braking to a halt partway through is `["go straight", "go straight",
+"stop"]`; a vehicle already stopped that starts moving again mid-window
+could be `["stop", "go straight", "go straight"]`. Use `stop` only where the
+vehicle's own motion is actually (or very likely) stationary, per the
+reasoning above -- not merely where the dots run out due to leaving frame.
+
+## Output format
+
+Respond with a single JSON object and nothing else (no markdown code
+fences), with exactly these two keys:
+
+```
+{
+  "reasoning": "<your full step-by-step reasoning trace as free text>",
+  "actions": ["<action 1>", "<action 2>", "<action 3>"]
+}
+```
+
+Each entry in `actions` must be exactly one of "go straight", "turn left",
+"turn right", "stop" (lowercase, as written).
